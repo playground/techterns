@@ -1,0 +1,5 @@
+{
+   "error": "Unsupported content-type: audio/mp3. Supported content-types: ['application/json'].",
+   "code": 400,
+   "code_description": "Bad Request"
+}

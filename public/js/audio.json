@@ -1,0 +1,14 @@
+{
+  "result_index": 0,
+  "results": [
+    {
+      "final": true,
+      "alternatives": [
+        {
+          "transcript": "hello world ",
+          "confidence": 0.63
+        }
+      ]
+    }
+  ]
+}
