@@ -5,6 +5,7 @@
 ## For development
 - run "npm install" after git clone
 - npm start will start the server, the server will monitor for an incoming audio file (audio.mp3 or audio.wav)
+- from browser access the site through localhost:3000 
 - To test speech to text, run 
   ```npm run stt-test  --audio_type=mp3 --audio_file=<path_to_audio_file>```
 - To test text to speech, run
