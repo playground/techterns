@@ -1,8 +1,17 @@
-const fs = require('fs');
+const {renameSync, unlinkSync, existsSync, readFileSync} = require('fs');
 const jsonfile = require('jsonfile');
 const { Observable, forkJoin } = require('rxjs');
 const cp = require('child_process'),
 exec = cp.exec;
+
+var dotenv = require('dotenv');
+
+if(existsSync('.env-local')) {
+  const localEnv = dotenv.parse(readFileSync('.env-local'));
+  for(var i in localEnv) {
+    process.env[i] = localEnv[i];
+  }
+}
 
 const absFilePath = `${__dirname}/public/input`;
 const filePath = './public/input';
@@ -14,9 +23,13 @@ const state = {
   server: null,
   sockets: [],
 };
-process.env.npm_config_cameraOn = false;
 
-console.log('platform ', process.platform)
+console.log('platform ', process.platform, absFilePath)
+
+const sttUrl = process.env.stt_url;
+const ttsUrl = process.env.tts_url;
+const ttsApikey = process.env.tts_apikey;
+const sttApikey = process.env.stt_apikey;
 
 let techTerns = {
   stt: (audioFile) => {
@@ -24,25 +37,32 @@ let techTerns = {
      * supported file types [application/octet-stream,audio/alaw,audio/basic,audio/flac,audio/g729,audio/l16,audio/mp3,audio/mpeg,audio/mulaw,audio/ogg,audio/ogg;codecs=opus,audio/ogg;codecs=vorbis,audio/wav,audio/webm,audio/webm;codecs=opus,audio/webm;codecs=vorbis]
      */
       let contentType = audioFile.indexOf('wav') > 0 ? 'audio/wav' : 'audio/mp3';
-      let arg = `curl -X POST -u "apikey:2z7-aATMGDk1mtsIVlx-n8eqFuHrorfhFplSVIBb2Qms" --header "Content-Type: ${contentType}" --data-binary @/${absFilePath}/${audioFile} "https://api.us-south.speech-to-text.watson.cloud.ibm.com/instances/ce140507-a5c1-4a83-877c-a5017e16e17e/v1/recognize"`
+      let arg = `curl -X POST -u "apikey:${sttApikey}" --header "Content-Type: ${contentType}" --data-binary @/${absFilePath}/${audioFile} "${sttUrl}"`
       console.log(arg)
       exec(arg, {maxBuffer: 1024 * 2000}, (err, stdout, stderr) => {
         if(!err) {
           console.log('audio transcribed...', stdout);
           jsonfile.writeFile(`${staticPath}/audio.json`, JSON.parse(stdout), {spaces: 2});
           techTerns.renameFile(`${absFilePath}/${audioFile}`, `${absFilePath}/backup/${audioFile}`);  
-          // fs.unlinkSync(`${absFilePath}/${audioFile}`);
+          // unlinkSync(`${absFilePath}/${audioFile}`);
         } else {
           console.log(err);
         }
       });
   },
-  tts: (text) => {
-    let arg = `curl -X POST -u "apikey:O1zxru_nZPZqbGTHs5E6xmvr7wieYEUKBIbQ162w6oiu" --header "Content-Type: audio/mp3" --data "{\"text\": \"hello world\"}" --output /Users/jeff/git_repo/sandbox/ieam/techterns/public/input/hello.mp3 "https://api.us-south.text-to-speech.watson.cloud.ibm.com/instances/043bb919-1d30-4916-825d-a452da75b6a2/v1/synthesize"`
+  tts: (text) => {   
+    let arg = `curl -X POST -u "apikey:${ttsApikey}" --header "Content-Type: application/json" --header "Accept: audio/mp3" --data "{\"text\": ${text}}" --output ${absFilePath}/hello.mp3 "${ttsUrl}"`
+    exec(arg, {maxBuffer: 1024 * 2000}, (err, stdout, stderr) => {
+      if(!err) {
+        console.log('audio file created...', stdout);
+      } else {
+        console.log(err);
+      }
+    });
   },
   renameFile: (from, to) => {
-    if(fs.existsSync(from)) {
-      fs.renameSync(from, to);
+    if(existsSync(from)) {
+      renameSync(from, to);
     }    
   },
   sleep: (ms) => {
@@ -50,16 +70,16 @@ let techTerns = {
   },
   checkAudio: async () => {
     let audioFile = `audio.wav`;
-    if(!fs.existsSync(`${filePath}/${audioFile}`)) {
+    if(!existsSync(`${filePath}/${audioFile}`)) {
       audioFile = `audio.mp3`;
     }
-    if(fs.existsSync(`${filePath}/${audioFile}`)) {
+    if(existsSync(`${filePath}/${audioFile}`)) {
       try {
         console.log(audioFile)
         techTerns.stt(audioFile);
       } catch(e) {
         console.log(e);
-        fs.unlinkSync(imageFile);
+        unlinkSync(imageFile);
       }
     }  
   },  

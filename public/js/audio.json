@@ -5,8 +5,8 @@
       "final": true,
       "alternatives": [
         {
-          "transcript": "hello world ",
-          "confidence": 0.63
+          "transcript": "testing one two three ",
+          "confidence": 0.99
         }
       ]
     }

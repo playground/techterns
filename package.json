@@ -4,6 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "util": "scripts/util.js",
+    "tts-test": "npm run util --task=tts",
+    "stt-test": "npm run util --task=stt", 
+    "stt-tts-tokens": "npm run util --task=stt_tts_tokens", 
     "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -14,5 +18,8 @@
     "express-fileupload": "^1.2.1",
     "jsonfile": "^6.1.0",
     "rxjs": "^7.1.0"
+  },
+  "devDependencies": {
+    "dotenv": "^10.0.0"
   }
 }
