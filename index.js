@@ -5,6 +5,7 @@ const cp = require('child_process'),
 exec = cp.exec;
 
 var dotenv = require('dotenv');
+var mqtt = require('mqtt');
 
 if(existsSync('.env-local')) {
   const localEnv = dotenv.parse(readFileSync('.env-local'));
@@ -24,12 +25,23 @@ const state = {
   sockets: [],
 };
 
+var client = null;
+
 console.log('platform ', process.platform, absFilePath)
 
 const sttUrl = process.env.stt_url;
 const ttsUrl = process.env.tts_url;
 const ttsApikey = process.env.tts_apikey;
 const sttApikey = process.env.stt_apikey;
+
+function write_audio(audio_obj){
+	let full_name = audio_obj.name + '.' + audio_obj.type
+	if (audio_obj && audio_obj.audio && audio_obj.name && audio_obj.type) {
+		let buff = new Buffer(audio_obj.audio, 'base64');
+		require('fs').writeFileSync(full_name, buff);
+		console.log('audio file created... ' + full_name);		
+	}
+}
 
 let techTerns = {
   stt: (audioFile) => {
@@ -102,7 +114,82 @@ let techTerns = {
       // console.log('Add socket', state.sockets.length + 1);
       state.sockets.push(socket);
     });
+
+    techTerns.connect_mqtt();
+   
   },
+    connect_mqtt: () => {
+	client = mqtt.connect({host: 'localhost', port: 1883});
+	  
+	function publish(topic, msg, options){
+		if (client.connected == true){
+		  client.publish(topic, msg, options);
+		}
+	}
+
+	client.on('connect', function() {
+		 console.log('connected');
+		 if (client.connected == true){
+			client.on('message', function(topic, message, packet){
+			//console.log(topic + message)
+			if (message && topic=='/audio'){
+				let audio_obj = null;
+				try{
+					audio_obj = JSON.parse(message);
+				} catch(e) {
+					alert(e);
+				}
+				
+				if (audio_obj && audio_obj.audio && audio_obj.name && audio_obj.type){
+					let arg = null;
+					let full_name = audio_obj.name + '.' + audio_obj.type
+					try{
+						write_audio(audio_obj);
+						
+						let cont_type = 'audio/' + audio_obj.type
+						let pwd = process.env.PWD
+						let audio_binary = '@/' + pwd + '/' + full_name
+						
+						if (require('fs').existsSync('./' + full_name)){
+							console.log('Sending to Watson...');
+							
+							arg = `curl -X POST -u "apikey:${sttApikey}" --header "Content-Type: ${cont_type}" --data-binary ${audio_binary} "${sttUrl}"`;
+							console.log(arg);
+							exec(arg, {maxBuffer: 1024 * 2000}, (err, stdout, stderr) => {
+								if(!err) {
+								  console.log('Success! Audio transcribed...', stdout);
+								  	publish('/stt', stdout)
+								} else {
+								  console.log(err);
+								}
+						      });
+							
+						}
+					
+					} catch(err) {
+						console.error(err)
+					}
+				} else {
+					console.log('Invalid JSON. Format: ' + JSON.stringify( {
+					name: "foo",
+					type: "wav",
+					audio: "..."
+					}));
+				}
+
+			}
+			});
+			
+			client.on('error', function (err) {
+				console.log('error', err);
+			})
+
+			client.subscribe(['detect','audio', '/audio']);
+			publish('detect', 'test');
+		  }
+	});
+  },
+  
   restart: () => {
     // clean the cache
     state.sockets.forEach((socket, index) => {
@@ -116,8 +203,7 @@ let techTerns = {
   
     state.server.close(() => {
       console.log('Server is closed');
-      console.log('\n----------------- restarting -------------');
-      techTerns.start();
+      console.log('\n----------------- restarting -------------');      techTerns.start();
     });
   }      
 }
