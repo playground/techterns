@@ -119,7 +119,7 @@ let techTerns = {
    
   },
     connect_mqtt: () => {
-	client = mqtt.connect({host: 'localhost', port: 1883});
+	client = mqtt.connect({host: '192.168.0.22', port: 1883});
 	  
 	function publish(topic, msg, options){
 		if (client.connected == true){
@@ -158,7 +158,7 @@ let techTerns = {
 							exec(arg, {maxBuffer: 1024 * 2000}, (err, stdout, stderr) => {
 								if(!err) {
 								  console.log('Success! Audio transcribed...', stdout);
-								  	publish('/stt', stdout)
+								  	publish('/stt', stdout);
 								} else {
 								  console.log(err);
 								}
