@@ -119,7 +119,7 @@ let techTerns = {
    
   },
     connect_mqtt: () => {
-	client = mqtt.connect({host: '192.168.0.22', port: 1883});
+	client = mqtt.connect({host: '127.0.0.1', port: 1883});
 	  
 	function publish(topic, msg, options){
 		if (client.connected == true){
