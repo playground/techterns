@@ -43,6 +43,41 @@ function write_audio(audio_obj){
 	}
 }
 
+function result_to_str(stt_obj){
+	let final_str = '';
+	console.log(stt_obj)
+	for (let i = 0; i < stt_obj.results.length; i++) {
+		//text += cars[i] + "<br>";
+		final_str = final_str + stt_obj.results[i].alternatives[0].transcript;
+	}
+	return final_str
+ }
+
+function format(audio){
+	let name = 'tts';
+	let type = 'wav';
+
+	console.log('Formatting ' + name)
+
+	if (!audio){
+		console.log('Missing arguments. No such audio file exists.');
+	}
+
+	let binary_data = require('fs').readFileSync(audio)
+	//console.log(binary_data)
+	let audio64 = Buffer.from(binary_data).toString('base64');
+	//console.log(audio64);
+	var audio_obj = {
+		name: name,
+		audio: audio64,
+		type: type
+	};
+	let audio_json = JSON.stringify(audio_obj);
+	//console.log(audio_json)
+	return audio_obj
+}
+
+
 let techTerns = {
   stt: (audioFile) => {
     /**
@@ -62,6 +97,44 @@ let techTerns = {
         }
       });
   },
+  
+  stt_from_json: (cont_type, pwd, audio_binary) => {
+  	console.log('Sending to Watson...');
+							
+	let arg = `curl -X POST -u "apikey:${sttApikey}" --header "Content-Type: ${cont_type}" --data-binary ${audio_binary} "${sttUrl}"`;
+	
+	//console.log(arg);
+	return new Promise(function (resolve, reject){
+		exec(arg, {maxBuffer: 1024 * 2000}, (err, stdout, stderr) => {
+		if(!err) {
+		  resolve(stdout)
+		} else {
+		  console.log(err);
+		}
+	});
+		
+	})
+  },
+  
+  tts_from_json: (result) => {  
+    let text = result_to_str(result); 
+    let pwd = process.env.PWD;
+    let arg = `curl -X POST -u "apikey:${ttsApikey}" --header "Content-Type: application/json" --header "Accept: audio/wav" --data '{"text": "${text}"}' --output ${pwd}/tts.wav "${ttsUrl}"`
+    console.log('Calling Watson...')
+    //console.log(arg)
+    
+    return new Promise(function(resolve, reject) {
+	    exec(arg, {maxBuffer: 1024 * 2000}, (err, stdout, stderr) => {
+	      if(!err) {
+		console.log('audio file created...', stdout);
+		resolve(result)
+	      } else {
+		console.log(err);
+	      }
+	    });
+	});
+  },
+  
   tts: (text) => {   
     let arg = `curl -X POST -u "apikey:${ttsApikey}" --header "Content-Type: application/json" --header "Accept: audio/mp3" --data "{\"text\": ${text}}" --output ${absFilePath}/hello.mp3 "${ttsUrl}"`
     exec(arg, {maxBuffer: 1024 * 2000}, (err, stdout, stderr) => {
@@ -141,29 +214,41 @@ let techTerns = {
 				}
 				
 				if (audio_obj && audio_obj.audio && audio_obj.name && audio_obj.type){
-					let arg = null;
 					let full_name = audio_obj.name + '.' + audio_obj.type
 					try{
 						write_audio(audio_obj);
 						
-						let cont_type = 'audio/' + audio_obj.type
-						let pwd = process.env.PWD
-						let audio_binary = '@/' + pwd + '/' + full_name
+						let cont_type = 'audio/' + audio_obj.type;
+						let pwd = process.env.PWD;
+						let audio_binary = '@/' + pwd + '/' + full_name;
+						
+						function validate(stt_out){
+							//console.log(stt_out);
+							return new Promise(function (resolve, reject) {
+								resolve( JSON.parse(stt_out) );
+							})
+						}
+						
+						function web_publish(result){
+							let tts = format('./tts.wav')
+							let final_json = JSON.stringify({
+								tts: tts,
+								result: result
+							})
+
+							return new Promise(function(resolve, reject){
+							  publish('/stt', final_json)
+							  resolve()
+							});
+						}
 						
 						if (require('fs').existsSync('./' + full_name)){
-							console.log('Sending to Watson...');
+							let stt_out = techTerns.stt_from_json(cont_type, pwd, audio_binary)
+							.then(validate)
+							.then(techTerns.tts_from_json)
+							.then(web_publish)
 							
-							arg = `curl -X POST -u "apikey:${sttApikey}" --header "Content-Type: ${cont_type}" --data-binary ${audio_binary} "${sttUrl}"`;
-							console.log(arg);
-							exec(arg, {maxBuffer: 1024 * 2000}, (err, stdout, stderr) => {
-								if(!err) {
-								  console.log('Success! Audio transcribed...', stdout);
-								  	publish('/stt', stdout);
-								} else {
-								  console.log(err);
-								}
-						      });
-							
+							//publish('/stt', stt_out);
 						}
 					
 					} catch(err) {
