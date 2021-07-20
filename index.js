@@ -47,9 +47,11 @@ function result_to_str(stt_obj){
 	let final_str = '';
 	console.log(stt_obj)
 	for (let i = 0; i < stt_obj.results.length; i++) {
-		//text += cars[i] + "<br>";
 		final_str = final_str + stt_obj.results[i].alternatives[0].transcript;
 	}
+	
+	//final_str = final_str.replace(/'/g, "\\'");
+	
 	return final_str
  }
 
@@ -119,9 +121,9 @@ let techTerns = {
   tts_from_json: (result) => {  
     let text = result_to_str(result); 
     let pwd = process.env.PWD;
-    let arg = `curl -X POST -u "apikey:${ttsApikey}" --header "Content-Type: application/json" --header "Accept: audio/wav" --data '{"text": "${text}"}' --output ${pwd}/tts.wav "${ttsUrl}"`
+    let arg = `curl -X POST -u "apikey:${ttsApikey}" --header "Content-Type: application/json" --header "Accept: audio/wav" --data "{\\"text\\": \\"${text}\\"}" --output ${pwd}/tts.wav "${ttsUrl}"`
     console.log('Calling Watson...')
-    //console.log(arg)
+    console.log(arg)
     
     return new Promise(function(resolve, reject) {
 	    exec(arg, {maxBuffer: 1024 * 2000}, (err, stdout, stderr) => {
